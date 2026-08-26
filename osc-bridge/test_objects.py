@@ -87,7 +87,13 @@ def main():
         print("  {:<14} pause".format(name))
     time.sleep(BEAT)
 
-    print("\n6. A name that does not exist")
+    print("\n6. Global transport")
+    for command in ("play", "pause", "play", "reset"):
+        client.send_message("/inviso/transport/{}".format(command), [])
+        print("  {:<14} {}".format("transport", command))
+        time.sleep(BEAT)
+
+    print("\n7. A name that does not exist")
     print("     ... the panel should say so in orange")
     send("no-such-object", "play")
 

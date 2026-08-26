@@ -148,6 +148,18 @@ Height is not visible in the default aerial view. Tilt the camera into altitude 
 
 **Orientation** — `yaw` is applied in radians and is unbounded. `pitch` and `roll` are accepted and ignored, as the listener head tracks orientation solely through its yaw everywhere else in the app.
 
+### Transport
+
+```
+/inviso/transport/play
+/inviso/transport/pause
+/inviso/transport/reset
+```
+
+The global controls, matching the **Play**, **Pause** and **Reset** buttons in the top bar. These cover sound zones as well as objects, which the per-object commands do not.
+
+`reset` sends everything back to the start of its file and leaves the transport where it is: what was playing keeps playing, from zero.
+
 ### Sound objects
 
 ```

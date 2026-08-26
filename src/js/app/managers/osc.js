@@ -29,6 +29,9 @@ const ALTITUDE_LIMIT = 300;
 /* /inviso/object/<name>/<command> — names may contain anything but a slash. */
 const OBJECT_ADDRESS = /^\/inviso\/object\/([^/]+)\/(play|pause|reset|loop)$/;
 
+/* /inviso/transport/<command> — the global controls in the top bar. */
+const TRANSPORT_ADDRESS = /^\/inviso\/transport\/(play|pause|reset)$/;
+
 export default class OSC {
   constructor(main) {
     this.main = main;
@@ -165,6 +168,13 @@ export default class OSC {
       return;
     }
 
+    const transportCommand = message.address.match(TRANSPORT_ADDRESS);
+
+    if (transportCommand) {
+      this.handleTransportCommand(transportCommand[1]);
+      return;
+    }
+
     if (message.address === '/inviso/listener/position') {
       const x = toNumber(args[0]);
       const y = toNumber(args[1]);
@@ -185,6 +195,18 @@ export default class OSC {
         this.pendingYaw = yaw;
       }
     }
+  }
+
+  /* Drives the global transport, the same controls as the top bar. */
+  handleTransportCommand(command) {
+    if (command === 'reset') {
+      this.main.resetAll();
+    } else {
+      this.main.setGlobalPlay(command === 'play');
+    }
+
+    this.lastCommand = { text: 'transport ' + command, ok: true };
+    this.render();
   }
 
   /**

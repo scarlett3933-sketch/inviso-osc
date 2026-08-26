@@ -225,9 +225,16 @@ export default class Main {
 
     this.setupTooltips();
 
-    document.getElementById('play-pause-button').onclick = function(){
-        self.toggleGlobalPlay(this);
+    document.getElementById('global-play').onclick = function(){
+        self.setGlobalPlay(true);
     }
+    document.getElementById('global-pause').onclick = function(){
+        self.setGlobalPlay(false);
+    }
+    document.getElementById('global-reset').onclick = function(){
+        self.resetAll();
+    }
+    self.updateTransportButtons();
     document.getElementById('undo').onclick = function(){
         if(self.roomCode === null) self.undo();
     }
@@ -643,17 +650,12 @@ export default class Main {
         if(child.val().lastEdit != this.headKey.key){
             if(!this.isPlaying){
                 this.isPlaying = true;
-                let element = document.getElementById('play-pause-button');
-                element.innerHTML = 'Pause';
-                element.title = 'Pause';
                 this.audio.context.resume();
             } else {
                 this.isPlaying = false;
-                let element = document.getElementById('play-pause-button');
-                element.innerHTML = 'Play';
-                element.title = 'Play';
                 this.audio.context.suspend();
             }
+            this.updateTransportButtons();
             [].concat(this.soundObjects, this.soundZones).forEach(obj => obj.toggleAppearance(this));
         }
     });
@@ -1760,32 +1762,42 @@ export default class Main {
     }
   }
 
-  toggleGlobalPlay(element) {
-    this.isPlaying = !this.isPlaying;
-    if (this.isPlaying) {
-      element.innerHTML = 'Pause';
-      element.title = 'Pause'
+  /* Highlights whichever of Play or Pause reflects the current state. */
+  updateTransportButtons() {
+    const play = document.getElementById('global-play');
+    const pause = document.getElementById('global-pause');
 
+    if (play) play.classList.toggle('active', this.isPlaying);
+    if (pause) pause.classList.toggle('active', !this.isPlaying);
+  }
+
+  /**
+   * Sends every sound object and zone back to the start of its file, leaving
+   * the transport where it is: what was playing keeps playing, from zero.
+   */
+  resetAll() {
+    this.soundObjects.forEach((obj) => {
+      if (obj.type === 'SoundObject' && obj.resetSound) obj.resetSound();
+    });
+
+    this.soundZones.forEach((zone) => {
+      if (zone.sound && zone.sound.state) {
+        zone.sound.state.pausedAt = 0;
+        zone.sound.state.currentTime = 0;
+        zone.sound.state.startedAt = Date.now();
+      }
+    });
+  }
+
+  setGlobalPlay(shouldPlay) {
+    this.isPlaying = !!shouldPlay;
+
+    if (this.isPlaying) {
       // Fix: resume audio context and sync to playState
       this.audio.context.resume();
-      [].concat(this.soundObjects, this.soundZones).forEach(obj => {
-        if (obj.type === 'SoundObject') {
-          obj.checkPlayState(this);
-        }
-      });
-
-    } else {
-      element.innerHTML = 'Play';
-      element.title = 'Play';
-      //this.audio.context.suspend();
-
-      // Fix: remove audio context suspension; stop sounds via checkPlayState
-      [].concat(this.soundObjects, this.soundZones).forEach(obj => {
-        if (obj.type === 'SoundObject') {
-          obj.checkPlayState(this);
-        }
-      });
     }
+
+    this.updateTransportButtons();
 
     [].concat(this.soundObjects, this.soundZones).forEach(sound => sound.checkPlayState(this));
     [].concat(this.soundObjects, this.soundZones).forEach(obj => obj.toggleAppearance(this))

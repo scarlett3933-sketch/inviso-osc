@@ -576,24 +576,36 @@ input[type='file'] {
   position: relative;
   top: 1px; }
 
-#play-pause-button {
+#global-play, #global-pause, #global-reset {
   position: absolute;
   top: 15px;
-  left: 20px;
   cursor: pointer;
   color: #5d5e5d; }
+
+#global-play {
+  left: 20px; }
+
+#global-pause {
+  left: 68px; }
+
+#global-reset {
+  left: 130px; }
+
+#global-play:hover, #global-pause:hover, #global-reset:hover {
+  opacity: 0.8; }
+
+/* whichever of play or pause reflects the current state */
+#global-play.active, #global-pause.active {
+  color: #2196f3; }
 
 #button-text {
   color: #555;
   font-family: roboto, 'helvetica neue', helvetica, arial, sans-serif; }
 
-#play-pause-button:hover {
-  opacity: 0.8; }
-
 #undo {
   position: absolute;
   top: 16px;
-  left: 95px;
+  left: 200px;
   cursor: pointer;
   color: #5d5e5d; }
 
@@ -609,7 +621,7 @@ input[type='file'] {
 #redo {
   position: absolute;
   top: 16px;
-  left: 170px;
+  left: 275px;
   cursor: pointer;
   color: #5d5e5d; }
 
@@ -630,7 +642,7 @@ input[type='file'] {
   z-index: 2;
   position: absolute;
   top: 16px;
-  left: 330px;
+  left: 435px;
   cursor: pointer;
   color: #5d5e5d; }
 
@@ -641,7 +653,7 @@ input[type='file'] {
   z-index: 2;
   position: absolute;
   top: 16px;
-  left: 245px;
+  left: 350px;
   cursor: pointer;
   color: #5d5e5d; }
 
@@ -651,7 +663,7 @@ input[type='file'] {
 #outputMode {
   position: absolute;
   top: 16px;
-  left: 405px;
+  left: 510px;
   cursor: pointer;
   color: #5d5e5d; }
 
@@ -888,7 +900,7 @@ input[type='file'] {
   z-index: 2;
   position: absolute;
   top: 16px;
-  left: 550px;
+  left: 655px;
   cursor: pointer;
   color: #5d5e5d; }
 
@@ -902,7 +914,7 @@ input[type='file'] {
   z-index: 2;
   position: absolute;
   top: 45px;
-  left: 550px;
+  left: 655px;
   padding: 10px 12px;
   background: #ececec;
   border-radius: 10px;
