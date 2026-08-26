@@ -26,6 +26,9 @@ const DEFAULT_PORT = 9000;
 const FLOOR_HALF_EXTENT = 5000;
 const ALTITUDE_LIMIT = 300;
 
+/* /inviso/object/<name>/<command> — names may contain anything but a slash. */
+const OBJECT_ADDRESS = /^\/inviso\/object\/([^/]+)\/(play|pause|reset|loop)$/;
+
 export default class OSC {
   constructor(main) {
     this.main = main;
@@ -41,6 +44,9 @@ export default class OSC {
     this.pendingPosition = null;
     this.pendingYaw = null;
 
+    /* Last object command received, shown in the panel. */
+    this.lastCommand = null;
+
     this.port = readStoredPort();
 
     this.setupUI();
@@ -52,6 +58,7 @@ export default class OSC {
     this.panel = document.getElementById('osc-panel');
     this.portInput = document.getElementById('osc-port');
     this.statusText = document.getElementById('osc-status');
+    this.commandText = document.getElementById('osc-last-command');
 
     if (this.portInput) this.portInput.value = this.port;
 
@@ -146,6 +153,18 @@ export default class OSC {
 
     const args = message.args || [];
 
+    /**
+     * Object commands are discrete events rather than a continuous stream, so
+     * they are applied on arrival. Buffering them per frame would drop a
+     * play that arrived in the same frame as a reset.
+     */
+    const objectCommand = message.address.match(OBJECT_ADDRESS);
+
+    if (objectCommand) {
+      this.handleObjectCommand(objectCommand[1], objectCommand[2], args);
+      return;
+    }
+
     if (message.address === '/inviso/listener/position') {
       const x = toNumber(args[0]);
       const y = toNumber(args[1]);
@@ -168,6 +187,49 @@ export default class OSC {
     }
   }
 
+  /**
+   * Applies play, pause, reset, or loop to a named sound object. Reports what
+   * happened in the panel, since a mistyped or deleted name would otherwise
+   * fail silently and be miserable to debug mid-performance.
+   */
+  handleObjectCommand(rawName, command, args) {
+    const name = decodeURIComponent(rawName);
+    const object = this.main.findSoundObjectByName(name);
+
+    if (!object) {
+      this.lastCommand = { text: name + '/' + command + ' — no such object', ok: false };
+      this.render();
+      return;
+    }
+
+    switch (command) {
+      case 'play':
+        object.playSound(true);
+        object.userSetPlay = true;
+        break;
+
+      case 'pause':
+        object.stopSound(true);
+        object.userSetPlay = false;
+        break;
+
+      case 'reset':
+        object.resetSound();
+        break;
+
+      case 'loop': {
+        /* No argument toggles; an argument sets it explicitly. */
+        const enabled = args.length > 0 ? !!toNumber(args[0]) : !object.loopEnabled;
+        object.setLoop(enabled);
+        break;
+      }
+    }
+
+    const suffix = command === 'loop' ? ' ' + (object.loopEnabled ? 'on' : 'off') : '';
+    this.lastCommand = { text: object.getDisplayName() + ' ' + command + suffix, ok: true };
+    this.render();
+  }
+
   render() {
     if (this.label) {
       this.label.innerHTML = this.enabled ? 'OSC: ' + this.port : 'OSC: Off';
@@ -181,6 +243,16 @@ export default class OSC {
     if (this.statusText) {
       this.statusText.innerHTML = this.statusMessage();
       this.statusText.className = this.listening ? 'osc-ok' : 'osc-warn';
+    }
+
+    if (this.commandText) {
+      if (this.lastCommand) {
+        this.commandText.innerHTML = escapeHTML(this.lastCommand.text);
+        this.commandText.className = this.lastCommand.ok ? 'osc-ok' : 'osc-warn';
+        this.commandText.style.display = 'block';
+      } else {
+        this.commandText.style.display = 'none';
+      }
     }
   }
 
@@ -241,6 +313,17 @@ function readStoredPort() {
   if (isFinite(stored) && stored >= 1024 && stored <= 65535) return stored;
 
   return DEFAULT_PORT;
+}
+
+/* Object names arrive from outside the app and land in innerHTML. */
+function escapeHTML(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[ch]);
 }
 
 function toNumber(arg) {

@@ -254,6 +254,31 @@ export default class GUIWindow {
 		// object.isLiveInput = true;
 	  // }
 
+	  /* Name this object answers to over OSC. */
+	  this.addParameter({
+		  property: 'Name',
+		  value: object.objectName || '',
+		  type: 'text',
+		  cls: 'objectName',
+		  placeholder: object.getDisplayName(),
+		  onCommit: (value) => {
+			object.setName(value);
+			var header = this.container.querySelector('.sphere h3, .sphere h4');
+			if (header) { header.textContent = 'OBJECT ' + (this.app.soundObjects.indexOf(object) + 1) + ' — ' + object.getDisplayName(); }
+		  }
+	  }, elem);
+
+	  this.addParameter({
+		  property: 'Loop',
+		  value: object.loopEnabled ? 'On' : 'Off',
+		  cls: 'loop',
+		  button: true,
+		  events: [{ type: 'click', callback: (e) => {
+			object.setLoop(!object.loopEnabled);
+			e.target.textContent = object.loopEnabled ? 'On' : 'Off';
+		  }}]
+	  }, elem);
+
 	  this.addParameter({
 		  property: 'File | Input',
 		  value: !object.isLiveInput && object.omniSphere.sound && object.omniSphere.sound.name ? object.omniSphere.sound.name.split('/').pop() : 'None',
@@ -1137,6 +1162,13 @@ export default class GUIWindow {
 
   // update parameters of sound object
   updateObjectGUI(object) {
+	  /* Loop can also be changed over OSC, so keep the label honest. */
+	  var loopValue = this.container.querySelector('.loop .valueSpan');
+	  if (loopValue) {
+		var loopText = object.loopEnabled ? 'On' : 'Off';
+		if (loopValue.textContent !== loopText) { loopValue.textContent = loopText; }
+	  }
+
 	  // update audio time
 	  var time = this.container.querySelector('.time .value');
 	  this.replaceTextContent(time, !object.isLiveInput && object.omniSphere.sound && object.omniSphere.sound.state ? this.convertTime(object.omniSphere.sound.state.currentTime) : '0:00');
@@ -2559,6 +2591,32 @@ addSwipeEvents(div, title, objectType) {
 	  if (p.property != undefined) { div.appendChild(prop); }
 	  if (p.value != undefined) { div.appendChild(val); }
 	  if (p.type === 'time') { div.appendChild(audioVal); }
+
+	  if (p.type === 'text') {
+		var textInput = document.createElement('input');
+		textInput.type = 'text';
+		textInput.className = 'channelValue';
+		textInput.value = p.value;
+		textInput.style.color = "#5d5e5d";
+		textInput.style.width = '90px';
+		if (p.placeholder) { textInput.placeholder = p.placeholder; }
+
+		// the parent drags to scrub numbers; a text field must not
+		val.style.cursor = 'default';
+		val.onmousedown = null;
+
+		textInput.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+		textInput.addEventListener('click', function(e) { e.stopPropagation(); });
+
+		if (p.onCommit) {
+		  textInput.addEventListener('change', function(e) { p.onCommit(e.target.value); });
+		  textInput.addEventListener('keydown', function(e) {
+			if (e.keyCode === 13) { e.target.blur(); }
+		  });
+		}
+
+		val.appendChild(textInput);
+	  }
 
 	  if (p.type == 'int') {
 		var input = document.createElement('input');

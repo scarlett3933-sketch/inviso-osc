@@ -27,6 +27,10 @@ export default class SoundObject {
     this.isMuted = main.isMuted;
     this.app = main;
     this.userSetPlay = this.app.isPlaying;
+
+    /* User-facing name, used to address this object over OSC. */
+    this.objectName = null;
+    this.loopEnabled = true;
     this.app = main;
     this.finishUploadingSound = true;
 
@@ -488,6 +492,7 @@ export default class SoundObject {
   }
 
   loadSound(file, audio, mute, object, soundIn = null, copy=false) {
+    const self = this;
     const context = audio.context;
     const mainMixer = context.createGain();
     const isAmbisonicMode = this.app.isAmbisonicMode;
@@ -595,12 +600,30 @@ export default class SoundObject {
               sound.scriptNode = context.createScriptProcessor(2048, 1, 1);
               sound.scriptNode.connect(context.destination);
               sound.source = context.createBufferSource();
-              sound.source.loop = true;
+              sound.source.loop = self.loopEnabled;
               sound.source.connect(sound.scriptNode);
               sound.source.connect(sound.volume);
               sound.source.buffer = decodedData;
 
               sound.state.duration = sound.source.buffer.duration;
+
+              /**
+               * With looping off a sound ends on its own, and nothing else in
+               * the app would notice. Park it back at the start and mark it
+               * paused so the transport and the play icon stay truthful.
+               *
+               * stop() fires this too, so manual stops flag themselves first.
+               */
+              sound.stoppingManually = false;
+              sound.source.onended = () => {
+                if (sound.stoppingManually || sound.source.loop) return;
+
+                sound.state.pausedAt = 0;
+                sound.state.currentTime = 0;
+                sound.state.isAudioPaused = true;
+              };
+
+              sound.state.startedAt = Date.now() - resumeTime * 1000;
               sound.source.start(context.currentTime + 0.020, resumeTime);
           }
 
@@ -696,6 +719,7 @@ export default class SoundObject {
     if (!this.isLiveInput && this.omniSphere.sound && this.omniSphere.sound.state) {
       this.omniSphere.sound.state.pausedAt = (Date.now() - this.omniSphere.sound.state.startedAt) % (this.omniSphere.sound.state.duration * 1000);
       this.omniSphere.sound.state.isAudioPaused = true;
+      this.omniSphere.sound.stoppingManually = true;
       this.omniSphere.sound.source.stop();
 
       this.omniSphere.material.color.setHex(0x8F8F8F);
@@ -706,6 +730,66 @@ export default class SoundObject {
         this.omniSphere.material.color.setHex(0x8F8F8F);
     }
     this.oldFilePlayStatus = false;
+  }
+
+  /**
+   * The name this object answers to over OSC. Objects that have never been
+   * named fall back to their position in the scene, so everything is
+   * addressable whether or not the user has bothered naming it.
+   */
+  getDisplayName() {
+    if (this.objectName) return this.objectName;
+
+    return 'object-' + (this.app.soundObjects.indexOf(this) + 1);
+  }
+
+  setName(name) {
+    const trimmed = String(name || '').trim();
+
+    this.objectName = trimmed.length > 0 ? trimmed : null;
+  }
+
+  /**
+   * Sends the object back to the start of its file. Keeps playing if it was
+   * playing, stays paused if it was paused.
+   */
+  resetSound() {
+    const sound = this.omniSphere && this.omniSphere.sound;
+
+    if (!sound || !sound.state) return;
+
+    const wasPlaying = !sound.state.isAudioPaused;
+
+    if (wasPlaying) {
+      sound.stoppingManually = true;
+      sound.source.stop();
+    }
+
+    sound.state.pausedAt = 0;
+    sound.state.currentTime = 0;
+
+    if (wasPlaying) {
+      sound.state.isAudioPaused = false;
+      sound.play(0);
+    } else {
+      sound.state.isAudioPaused = true;
+    }
+  }
+
+  /**
+   * Looping applies to the whole object, its cones included. The change takes
+   * effect on anything already playing as well as on the next play.
+   */
+  setLoop(enabled) {
+    this.loopEnabled = !!enabled;
+
+    const sounds = [this.omniSphere && this.omniSphere.sound].concat(
+      this.cones.map(cone => cone.sound),
+    );
+
+    sounds.forEach((sound) => {
+      if (sound && sound.source) sound.source.loop = this.loopEnabled;
+    });
   }
 
   updatePlayStatus(status){
@@ -731,6 +815,7 @@ export default class SoundObject {
     cone.sound.state.isAudioPaused = true;
 
     cone.material.color.setHex(0x8F8F8F);
+    cone.sound.stoppingManually = true;
     cone.sound.source.stop();
     // cone.filename = null;
     if(userToggled && this.roomCode != null){
@@ -1450,6 +1535,8 @@ export default class SoundObject {
 
   toJSON() {
     return JSON.stringify({
+      name: this.objectName,
+      loop: this.loopEnabled,
       filename: (this.omniSphere.sound && this.omniSphere.sound && this.omniSphere.sound.name) || null,
       volume: (this.omniSphere && this.omniSphere.sound && this.omniSphere.sound.volume.gain.value) || null,
       position: this.containerObject.position,
@@ -1473,6 +1560,11 @@ export default class SoundObject {
 
   fromJSON(json, importedData) {
     const object = JSON.parse(json);
+
+    /* Absent in scenes exported before naming existed. */
+    this.objectName = object.name || null;
+    this.loopEnabled = object.loop !== false;
+
     this.containerObject.position.copy(object.position);
     this.altitudeHelper.position.copy(object.position);
     this.raycastSphere.position.copy(object.position);

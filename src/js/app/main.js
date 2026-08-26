@@ -1291,6 +1291,28 @@ export default class Main {
     this.audio.context.suspend();
   }
 
+  /**
+   * Resolves the name used in an OSC address to a sound object. Matches the
+   * user-given name first, then the positional fallback, both case
+   * insensitively. Returns null when nothing matches.
+   */
+  findSoundObjectByName(name) {
+    const wanted = String(name || '').trim().toLowerCase();
+
+    if (!wanted) return null;
+
+    const objects = this.soundObjects.filter(obj => obj.type === 'SoundObject');
+
+    /* Given names win, so a rename cannot be shadowed by someone else's slot. */
+    const named = objects.find(obj => obj.objectName
+      && obj.objectName.trim().toLowerCase() === wanted);
+
+    if (named) return named;
+
+    /* Positional name still answers, named or not, so patches keep working. */
+    return objects.find((obj, index) => 'object-' + (index + 1) === wanted) || null;
+  }
+
   setListenerPosition(object) {
     const q = new THREE.Vector3();
     object.updateMatrixWorld();

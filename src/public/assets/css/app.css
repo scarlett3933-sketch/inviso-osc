@@ -931,3 +931,8 @@ input[type='file'] {
 
 #osc-status.osc-warn {
   color: #b26500; }
+
+#osc-last-command {
+  margin-top: 4px;
+  font-size: 12px;
+  font-family: monospace; }
