@@ -21,14 +21,18 @@ The OSC control described below was added on top of that work.
 
 ## What was added
 
+Two things can be driven over OSC: the position and orientation of the listener head, and playback of individual sound objects.
+
 Browsers cannot receive raw OSC, because a web page is not allowed to open a listening socket. The feature is therefore split in two:
 
 * **`osc-bridge/`** — a small Node relay that listens for OSC over UDP and forwards each message as JSON over a WebSocket on port 8081.
-* **`src/js/app/managers/osc.js`** — a WebSocket client in the app that applies incoming messages to the listener head.
+* **`src/js/app/managers/osc.js`** — a WebSocket client in the app that applies incoming messages.
 
-Incoming messages are buffered and the latest value is applied once per animation frame, so a fast sender cannot flood the render loop. Updates reuse the same code path as the W/A/S/D keys, which means OSC is additive: keyboard and mouse control keep working, and OSC yields to an active mouse drag or a running trajectory exactly as the keys do.
+Listener updates are buffered and the latest value is applied once per animation frame, so a fast sender cannot flood the render loop. They reuse the same code path as the W/A/S/D keys, which means OSC is additive: keyboard and mouse control keep working, and OSC yields to an active mouse drag or a running trajectory exactly as the keys do. Object commands are discrete events and so are applied on arrival instead.
 
-A panel in the top bar toggles OSC on and off, sets the UDP port, and reports relay status. Both settings persist between sessions.
+A panel in the top bar toggles OSC on and off, sets the UDP port, and reports relay status. It also shows the last object command received and whether it matched an object, since a mistyped or deleted name would otherwise fail silently. The toggle and port persist between sessions.
+
+Sound objects gain a **Name** field and a **Loop** toggle in their panel, both of which persist through scene export and import. Looping was previously always on; it can now be switched off per object, in which case a sound that reaches its end returns to the start and marks itself paused.
 
 ## Requirements
 
@@ -123,6 +127,8 @@ OSC requires the relay to be running on the same machine as the browser, since a
 
 ## Message schema
 
+### Listener head
+
 ```
 /inviso/listener/position     x y z             floats, normalized -1..1
 /inviso/listener/orientation  yaw pitch roll    floats in radians
@@ -142,17 +148,45 @@ Height is not visible in the default aerial view. Tilt the camera into altitude 
 
 **Orientation** — `yaw` is applied in radians and is unbounded. `pitch` and `roll` are accepted and ignored, as the listener head tracks orientation solely through its yaw everywhere else in the app.
 
+### Sound objects
+
+```
+/inviso/object/<name>/play
+/inviso/object/<name>/pause
+/inviso/object/<name>/reset
+/inviso/object/<name>/loop     1 or 0, or no argument to toggle
+```
+
+`play` resumes from wherever the sound was paused; `reset` returns it to the start, continuing to play if it was playing. `loop` applies to the whole object, its cones included, and takes effect on anything already playing as well as on the next play.
+
+An object answers to two names: whatever is typed in its **Name** field, and its position in the scene as `object-1`, `object-2` and so on. Both work at once, so a patch written against `object-1` keeps working after the object is renamed. Given names take precedence, and matching ignores case.
+
+Audio files cannot be loaded over OSC, only controlled. Load them through **File | Input** in the object's panel first.
+
 ## Testing
 
-A test script is included that exercises position, height, yaw, and a continuous orbit:
+Two scripts are included. Set the same port in the OSC panel before running either.
 
 ```
 pip3 install python-osc
+```
+
+Listener head — position, height, yaw, and a continuous orbit:
+
+```
 python3 osc-bridge/test_osc.py          # port 7777
 python3 osc-bridge/test_osc.py 9000     # or any other port
 ```
 
-Set the same port in the OSC panel before running it.
+Per-object playback — play, pause, resume, reset and loop for each object, then all together, finishing on a name that does not exist so the panel's unmatched-name reporting can be seen:
+
+```
+python3 osc-bridge/test_objects.py                    # port 7777, object-1 onwards
+python3 osc-bridge/test_objects.py drums vocals       # address by given name
+python3 osc-bridge/test_objects.py 9000 drums vocals  # both
+```
+
+Create a sound object for each file in `audio_test/` and load it before running this one.
 
 ## Troubleshooting
 
@@ -161,3 +195,7 @@ Set the same port in the OSC panel before running it.
 **Status is green but nothing moves** — the port in the app and the port in your sender do not match.
 
 **The head jumps off screen** — position values are normalized. Keep them within roughly ±0.2 while working at the default zoom.
+
+**An object command says "no such object"** — the name in the message matches neither an object's **Name** field nor its `object-<n>` position. Check the panel for the name it received.
+
+**An object command matched but nothing is heard** — the object has no audio loaded. Load a file through **File | Input** in its panel.
