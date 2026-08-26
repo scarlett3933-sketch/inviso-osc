@@ -599,24 +599,30 @@ export default class SoundObject {
           sound.play = (resumeTime = 0) => {
               sound.scriptNode = context.createScriptProcessor(2048, 1, 1);
               sound.scriptNode.connect(context.destination);
-              sound.source = context.createBufferSource();
-              sound.source.loop = self.loopEnabled;
-              sound.source.connect(sound.scriptNode);
-              sound.source.connect(sound.volume);
-              sound.source.buffer = decodedData;
 
-              sound.state.duration = sound.source.buffer.duration;
+              const source = context.createBufferSource();
+              source.loop = self.loopEnabled;
+              source.connect(sound.scriptNode);
+              source.connect(sound.volume);
+              source.buffer = decodedData;
+
+              sound.source = source;
+              sound.state.duration = source.buffer.duration;
 
               /**
                * With looping off a sound ends on its own, and nothing else in
                * the app would notice. Park it back at the start and mark it
                * paused so the transport and the play icon stay truthful.
                *
-               * stop() fires this too, so manual stops flag themselves first.
+               * Every stopped source fires this, including ones replaced by a
+               * later play, so ignore any source that is no longer the current
+               * one — otherwise a stale handler wipes the position that a
+               * pause just saved.
                */
               sound.stoppingManually = false;
-              sound.source.onended = () => {
-                if (sound.stoppingManually || sound.source.loop) return;
+              source.onended = () => {
+                if (sound.source !== source) return;
+                if (sound.stoppingManually || source.loop) return;
 
                 sound.state.pausedAt = 0;
                 sound.state.currentTime = 0;
@@ -624,7 +630,7 @@ export default class SoundObject {
               };
 
               sound.state.startedAt = Date.now() - resumeTime * 1000;
-              sound.source.start(context.currentTime + 0.020, resumeTime);
+              source.start(context.currentTime + 0.020, resumeTime);
           }
 
           if(soundIn != null){
