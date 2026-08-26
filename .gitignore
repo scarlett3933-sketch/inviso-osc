@@ -1,2 +1,4 @@
 # ignore node_modules
 node_modules/
+# macOS finder metadata
+.DS_Store
