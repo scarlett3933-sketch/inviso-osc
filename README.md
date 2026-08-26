@@ -21,7 +21,7 @@ The OSC control described below was added on top of that work.
 
 ## What was added
 
-Two things can be driven over OSC: the position and orientation of the listener head, and playback of individual sound objects.
+Three things can be driven over OSC: the position and orientation of the listener head, the global transport, and playback of individual sound objects.
 
 Browsers cannot receive raw OSC, because a web page is not allowed to open a listening socket. The feature is therefore split in two:
 
@@ -32,7 +32,11 @@ Listener updates are buffered and the latest value is applied once per animation
 
 A panel in the top bar toggles OSC on and off, sets the UDP port, and reports relay status. It also shows the last object command received and whether it matched an object, since a mistyped or deleted name would otherwise fail silently. The toggle and port persist between sessions.
 
+The top bar's single play/pause toggle is now three controls — **Play**, **Pause** and **Reset** — with whichever of Play or Pause reflects the current state highlighted. Reset is new: there was previously no way to return to the start of a file.
+
 Sound objects gain a **Name** field and a **Loop** toggle in their panel, both of which persist through scene export and import. Looping was previously always on; it can now be switched off per object, in which case a sound that reaches its end returns to the start and marks itself paused.
+
+Everything in the interface is also addressable over OSC, and the two stay in step: a message sent from outside updates the buttons, and a button press behaves identically to the equivalent message.
 
 ## Requirements
 
@@ -125,6 +129,19 @@ OSC requires the relay to be running on the same machine as the browser, since a
 3. Confirm the status line reads *Listening on UDP \<port\>* in green.
 4. Send OSC to that port on `127.0.0.1`.
 
+The line beneath the port shows each transport or object command as it lands, and reports in orange when a name matched nothing.
+
+To control an object by name, create it, load audio into it through **File | Input**, and type a name into its **Name** field. Audio can only be loaded through the interface, not over OSC.
+
+### Controls in the interface
+
+| Control | Where | Does |
+| --- | --- | --- |
+| **Play**, **Pause**, **Reset** | top bar | global transport, covering objects and zones |
+| **Name** | object panel | the name the object answers to over OSC |
+| **Loop** | object panel | looping for that object and its cones |
+| **OSC** | top bar | enable OSC, set the UDP port, view status |
+
 ## Message schema
 
 ### Listener head
@@ -190,7 +207,7 @@ python3 osc-bridge/test_osc.py          # port 7777
 python3 osc-bridge/test_osc.py 9000     # or any other port
 ```
 
-Per-object playback — play, pause, resume, reset and loop for each object, then all together, finishing on a name that does not exist so the panel's unmatched-name reporting can be seen:
+Playback — play, pause, resume, reset and loop for each object, then all together, then the global transport, finishing on a name that does not exist so the panel's unmatched-name reporting can be seen:
 
 ```
 python3 osc-bridge/test_objects.py                    # port 7777, object-1 onwards
