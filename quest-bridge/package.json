@@ -1,0 +1,21 @@
+{
+  "name": "atc-quest-inviso-bridge",
+  "version": "1.0.0",
+  "description": "WebSocket-to-OSC bridge for A Thousand Clocks on Meta Quest and Inviso",
+  "main": "quest_bridge.js",
+  "scripts": {
+    "start": "node quest_bridge.js",
+    "check": "node --check quest_bridge.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "osc": "^2.4.5",
+    "ws": "^8.21.3"
+  },
+  "private": true,
+  "engines": {
+    "node": "16.x"
+  }
+}
