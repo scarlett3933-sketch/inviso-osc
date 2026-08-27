@@ -233,6 +233,50 @@ wss.on('connection', (socket, request) => {
         }
 
         // ====================================================
+        // QUEST CONTROLLER
+        // ====================================================
+
+        if (data.type === 'controller') {
+            const hand =
+                String(data.hand || '')
+                    .trim()
+                    .toLowerCase();
+
+            const control =
+                String(data.control || '')
+                    .trim()
+                    .toLowerCase();
+
+            const value = Number(data.value);
+
+            if (
+                !['left', 'right'].includes(hand) ||
+                control !== 'trigger' ||
+                !Number.isFinite(value)
+            ) {
+                console.warn(
+                    '[Quest Bridge] Invalid controller payload:',
+                    data,
+                );
+                return;
+            }
+
+            const safeValue =
+                value >= 0.5 ? 1 : 0;
+
+            sendOsc(
+                `/inviso/controller/${hand}/trigger`,
+                [safeValue],
+            );
+
+            console.log(
+                `[Quest Controller] ${hand} trigger=${safeValue}`,
+            );
+
+            return;
+        }
+
+        // ====================================================
         // LISTENER POSE
         // ====================================================
 
